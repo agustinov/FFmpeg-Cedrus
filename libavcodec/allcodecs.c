@@ -531,6 +531,7 @@ void avcodec_register_all(void)
     REGISTER_ENCODER(LIBXVID,           libxvid);
     REGISTER_DECODER(LIBZVBI_TELETEXT,  libzvbi_teletext);
     REGISTER_ENCODER(LIBAACPLUS,        libaacplus);
+    REGISTER_ENCODER(CEDRUS264,         cedrus264);
 
     /* text */
     REGISTER_DECODER(BINTEXT,           bintext);
