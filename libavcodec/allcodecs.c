@@ -74,6 +74,7 @@ extern const AVCodec ff_cavs_decoder;
 extern const AVCodec ff_cdgraphics_decoder;
 extern const AVCodec ff_cdtoons_decoder;
 extern const AVCodec ff_cdxl_decoder;
+extern const AVCodec ff_cedrus264_encoder;
 extern const AVCodec ff_cfhd_encoder;
 extern const AVCodec ff_cfhd_decoder;
 extern const AVCodec ff_cinepak_encoder;
