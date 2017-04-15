@@ -237,8 +237,7 @@ h264enc *h264enc_new(const struct h264enc_params *p)
 	struct ve_mem *m;
 
 	/* check parameter validity */
-	if (!IS_ALIGNED(p->src_width, 16) || !IS_ALIGNED(p->src_height, 16) ||
-		!IS_ALIGNED(p->width, 2) || !IS_ALIGNED(p->height, 2) ||
+	if (!IS_ALIGNED(p->src_width, 16) || !IS_ALIGNED(p->height, 2) ||
 		p->width > p->src_width || p->height > p->src_height)
 	{
 		MSG("invalid picture size");
