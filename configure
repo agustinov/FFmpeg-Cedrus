@@ -211,6 +211,7 @@ External library support:
   --enable-libcaca         enable textual display using libcaca [no]
   --enable-libcelt         enable CELT decoding via libcelt [no]
   --enable-libcdio         enable audio CD grabbing with libcdio [no]
+  --enable-libcedrus       enable encoding with Cedar VE on Allwiner CPU [no]
   --enable-libdc1394       enable IIDC-1394 grabbing using libdc1394
                            and libraw1394 [no]
   --enable-libdcadec       enable DCA decoding via libdcadec [no]
@@ -1372,6 +1373,7 @@ EXTERNAL_LIBRARY_LIST="
     libcelt
     libdc1394
     libdcadec
+    libcedrus
     libfaac
     libfdk_aac
     libflite
@@ -2495,6 +2497,7 @@ mjpeg2jpeg_bsf_select="jpegtables"
 libaacplus_encoder_deps="libaacplus"
 libcelt_decoder_deps="libcelt"
 libdcadec_decoder_deps="libdcadec"
+cedrus264_encoder_deps="libcedrus"
 libfaac_encoder_deps="libfaac"
 libfaac_encoder_select="audio_frame_queue"
 libfdk_aac_decoder_deps="libfdk_aac"
@@ -5225,6 +5228,7 @@ enabled libcelt           && require libcelt celt/celt.h celt_decode -lcelt0 &&
                              { check_lib celt/celt.h celt_decoder_create_custom -lcelt0 ||
                                die "ERROR: libcelt must be installed and version must be >= 0.11.0."; }
 enabled libcaca           && require_pkg_config caca caca.h caca_create_canvas
+enabled libcedrus         && require2 libcedrus "cedrus/cedrus.h cedrus/cedrus_regs.h" cedrus_open -lcedrus
 enabled libdcadec         && require_pkg_config dcadec libdcadec/dca_context.h dcadec_context_create &&
                              check_struct libdcadec/dca_context.h "struct dcadec_exss_info" matrix_encoding
 enabled libfaac           && require2 libfaac "stdint.h faac.h" faacEncGetVersion -lfaac

@@ -32,14 +32,15 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <cedrus/cedrus.h>
+#include <cedrus/cedrus_regs.h>
+
 #include "libavutil/internal.h"
 #include "libavutil/opt.h"
 #include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
 #include "avcodec.h"
 #include "internal.h"
-
-#include "arm/sunxi/ve.h"
 
 /* byte stream utils from:
  * https://github.com/jemk/cedrus/tree/master/h264enc
@@ -177,8 +178,9 @@ static void put_aud(void* regs)
 #define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
 typedef struct cedrus264Context {
 	AVClass *class;
+	cedrus_t *cedrus;
 	uint8_t *ve_regs;
-	void *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
+	cedrus_mem_t *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
 	unsigned int tile_w, tile_w2, tile_h, tile_h2, mb_w, mb_h, plane_size, frame_size;
 	unsigned int frame_num;
 	int qp, vewait;
@@ -201,21 +203,21 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	}
 
 	/* Check if VE is available */
-	while(!ve_lock()){
+/*	while(!ve_lock()){
 		if (c4->vewait <= 0){
 			av_log(avctx, AV_LOG_ERROR, "VE in use!\n");
 			return AVERROR(ENOMEM);
 		}
 		av_log(avctx, AV_LOG_INFO, "VE in use, wait %i seconds.\r", c4->vewait--);
 		sleep(1);
-	}
+	} */
 
 	/* Open VE */
-	if(!ve_open()){
+	c4->cedrus = cedrus_open();
+	if(!c4->cedrus){
 		av_log(avctx, AV_LOG_ERROR, "VE Open error.\n");
 		return AVERROR(ENOMEM);
 	}
-	c4->ve_regs = ve_get_regs();
 
 	/* Compute tile, macroblock and plane size */
 	c4->tile_w = (avctx->width + 31) & ~31;
@@ -228,42 +230,15 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	c4->frame_size = c4->plane_size + c4->plane_size / 2;
 
 	/* Alloc buffers */
-	c4->input_buf = ve_malloc(c4->frame_size);
-	c4->output_buf = ve_malloc(CEDAR_OUTPUT_BUF_SIZE);
-	c4->reconstruct_buf = ve_malloc(c4->tile_w * c4->tile_h + c4->tile_w * c4->tile_h2);
-	c4->small_luma_buf = ve_malloc(c4->tile_w2 * c4->tile_h2);
-	c4->mb_info_buf = ve_malloc(0x1000);
+	c4->input_buf = cedrus_mem_alloc(c4->cedrus, c4->frame_size);
+	c4->output_buf = cedrus_mem_alloc(c4->cedrus, CEDAR_OUTPUT_BUF_SIZE);
+	c4->reconstruct_buf = cedrus_mem_alloc(c4->cedrus, c4->tile_w * c4->tile_h + c4->tile_w * c4->tile_h2);
+	c4->small_luma_buf = cedrus_mem_alloc(c4->cedrus, c4->tile_w2 * c4->tile_h2);
+	c4->mb_info_buf = cedrus_mem_alloc(c4->cedrus, 0x1000);
 	if(!c4->input_buf || !c4->output_buf || !c4->reconstruct_buf || !c4->small_luma_buf || !c4->mb_info_buf){
 		av_log(avctx, AV_LOG_FATAL, "Cannot allocate frame.\n");
 		return AVERROR(ENOMEM);
 	}
-
-	/* Activate AVC engine */
-	writel(0x0013000b, c4->ve_regs + VE_CTRL);
-
-	/* ---- Part to put in cedrus264_encode if engine is used by multiple process (Need to be checked) */
-
-	/* Input size */
-	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
-	writel((c4->mb_w << 16) | (c4->mb_h << 0), c4->ve_regs + VE_ISP_INPUT_SIZE);
-
-	/* Input buffer */
-	writel(ve_virt2phys(c4->input_buf), c4->ve_regs + VE_ISP_INPUT_LUMA);
-	writel(ve_virt2phys(c4->input_buf) + c4->plane_size, c4->ve_regs + VE_ISP_INPUT_CHROMA);
-	
-	/* Reference output */
-	writel(ve_virt2phys(c4->reconstruct_buf), c4->ve_regs + VE_AVC_REC_LUMA);
-	writel(ve_virt2phys(c4->reconstruct_buf) + c4->tile_w * c4->tile_h, c4->ve_regs + VE_AVC_REC_CHROMA);
-	writel(ve_virt2phys(c4->small_luma_buf), c4->ve_regs + VE_AVC_REC_SLUMA);
-	writel(ve_virt2phys(c4->mb_info_buf), c4->ve_regs + VE_AVC_MB_INFO);
-
-	/* Encoding parameters */
-	writel(0x00000100, c4->ve_regs + VE_AVC_PARAM);
-	writel(0x00040000 | (c4->qp<<8) | c4->qp, c4->ve_regs + VE_AVC_QP);
-	//writel(0x00041e1e, c4->ve_regs + VE_AVC_QP); // Fixed QP=30
-	writel(0x00000104, c4->ve_regs + VE_AVC_MOTION_EST);
-
-	/* ---- Part end ---- */
 
 	/* Alloc Frame */
 	avctx->coded_frame = av_frame_alloc();
@@ -286,22 +261,45 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	unsigned int size;
 	int result;
 
+	c4->ve_regs = cedrus_ve_get(c4->cedrus, CEDRUS_ENGINE_H264_ENC, 0);
+
+	/* Input size */
+	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
+	writel((c4->mb_w << 16) | (c4->mb_h << 0), c4->ve_regs + VE_ISP_INPUT_SIZE);
+
+	/* Input buffer */
+	writel(cedrus_mem_get_phys_addr(c4->input_buf), c4->ve_regs + VE_ISP_INPUT_LUMA);
+	writel(cedrus_mem_get_phys_addr(c4->input_buf) + c4->plane_size, c4->ve_regs + VE_ISP_INPUT_CHROMA);
+
+	/* Reference output */
+	writel(cedrus_mem_get_phys_addr(c4->reconstruct_buf), c4->ve_regs + VE_AVC_REC_LUMA);
+	writel(cedrus_mem_get_phys_addr(c4->reconstruct_buf) + c4->tile_w * c4->tile_h, c4->ve_regs + VE_AVC_REC_CHROMA);
+	writel(cedrus_mem_get_phys_addr(c4->small_luma_buf), c4->ve_regs + VE_AVC_REC_SLUMA);
+	writel(cedrus_mem_get_phys_addr(c4->mb_info_buf), c4->ve_regs + VE_AVC_MB_INFO);
+
+	/* Encoding parameters */
+	writel(0x00000100, c4->ve_regs + VE_AVC_PARAM);
+	writel(0x00040000 | (c4->qp<<8) | c4->qp, c4->ve_regs + VE_AVC_QP);
+	//writel(0x00041e1e, c4->ve_regs + VE_AVC_QP); // Fixed QP=30
+	writel(0x00000104, c4->ve_regs + VE_AVC_MOTION_EST);
+
 	/* Copy data */
 	result = avpicture_layout((const AVPicture *)frame, PIX_FMT_NV12,
-		avctx->width, avctx->height, c4->input_buf, c4->frame_size);
+		avctx->width, avctx->height, cedrus_mem_get_pointer(c4->input_buf), c4->frame_size);
  	if(result < 0){
+		cedrus_ve_put(c4->cedrus);
 		av_log(avctx, AV_LOG_ERROR, "Input buffer too small.\n");
 		return AVERROR(ENOMEM);
 	}
-	ve_flush_cache(c4->input_buf, c4->frame_size);
+	cedrus_mem_flush_cache(c4->input_buf);
 
 	/* flush output buffer, otherwise we might read old cached data */
-	ve_flush_cache(c4->output_buf, CEDAR_OUTPUT_BUF_SIZE);
+	cedrus_mem_flush_cache(c4->output_buf);
 	
 	/* Set output buffer */
 	writel(0x0, c4->ve_regs + VE_AVC_VLE_OFFSET);
-	writel(ve_virt2phys(c4->output_buf), c4->ve_regs + VE_AVC_VLE_ADDR);
-	writel(ve_virt2phys(c4->output_buf) + CEDAR_OUTPUT_BUF_SIZE - 1, c4->ve_regs + VE_AVC_VLE_END);
+	writel(cedrus_mem_get_phys_addr(c4->output_buf), c4->ve_regs + VE_AVC_VLE_ADDR);
+	writel(cedrus_mem_get_phys_addr(c4->output_buf) + CEDAR_OUTPUT_BUF_SIZE - 1, c4->ve_regs + VE_AVC_VLE_END);
 
 	writel(0x04000000, c4->ve_regs + 0xb8c); // ???
 	
@@ -327,17 +325,18 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	writel(readl(c4->ve_regs + VE_AVC_STATUS) | 0x7, c4->ve_regs + VE_AVC_STATUS);
 
 	writel(0x8, c4->ve_regs + VE_AVC_TRIGGER);
-	ve_wait(1);
+	cedrus_ve_wait(c4->cedrus, 1);
 
 	writel(readl(c4->ve_regs + VE_AVC_STATUS), c4->ve_regs + VE_AVC_STATUS);
 
 	size = readl(c4->ve_regs + VE_AVC_VLE_LENGTH) / 8;
 	if(size > 0){
 		if ((result = ff_alloc_packet(pkt, size)) < 0){
+			cedrus_ve_put(c4->cedrus);
 			av_log(avctx, AV_LOG_ERROR, "Packet allocation error.\n");
 			return result;
 		}
-		memcpy(pkt->data, c4->output_buf, size);
+		memcpy(pkt->data, cedrus_mem_get_pointer(c4->output_buf), size);
 
 		pkt->pts = pkt->dts = frame->pts - ff_samples_to_time_base(avctx, avctx->delay);
 		pkt->flags |= AV_PKT_FLAG_KEY;
@@ -346,6 +345,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 
 	c4->frame_num++;
 
+	cedrus_ve_put(c4->cedrus);
 	return 0;
 }
 
@@ -353,19 +353,16 @@ static av_cold int cedrus264_close(AVCodecContext *avctx)
 {
 	cedrus264Context *c4 = avctx->priv_data;
 
-	/* Close AVC engine */
-	writel(0x00130007, c4->ve_regs + VE_CTRL);
-
 	/* Free buffers */
-	ve_free(c4->input_buf);
-	ve_free(c4->output_buf);
-	ve_free(c4->reconstruct_buf);
-	ve_free(c4->small_luma_buf);
-	ve_free(c4->mb_info_buf);
+	cedrus_mem_free(c4->input_buf);
+	cedrus_mem_free(c4->output_buf);
+	cedrus_mem_free(c4->reconstruct_buf);
+	cedrus_mem_free(c4->small_luma_buf);
+	cedrus_mem_free(c4->mb_info_buf);
 
 	/* Disable and close VE */
-	ve_close();
-	ve_unlock();
+	cedrus_close(c4->cedrus);
+	/* ve_unlock(); */
 
 	/* Free Frame */
 	av_frame_free(&avctx->coded_frame);
