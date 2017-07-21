@@ -287,7 +287,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	int result;
 
 	/* Copy data */
-	result = avpicture_layout((const AVPicture *)frame, PIX_FMT_NV12,
+	result = avpicture_layout((const AVPicture *)frame, AV_PIX_FMT_NV12,
 		avctx->width, avctx->height, c4->input_buf->virt, c4->frame_size);
  	if(result < 0){
 		av_log(avctx, AV_LOG_ERROR, "Input buffer too small.\n");
