@@ -288,7 +288,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	writel(0x00000104, c4->ve_regs + VE_AVC_MOTION_EST);
 
 	/* Copy data */
-	result = avpicture_layout((const AVPicture *)frame, PIX_FMT_NV12,
+	result = avpicture_layout((const AVPicture *)frame, AV_PIX_FMT_NV12,
 		avctx->width, avctx->height, cedrus_mem_get_pointer(c4->input_buf), c4->frame_size);
  	if(result < 0){
 		cedrus_ve_put(c4->cedrus);
