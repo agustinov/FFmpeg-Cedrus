@@ -1,3 +1,7 @@
+## UPD:
+Improved to run Allwinner's (H3 and newer) cedrus H264 encoders with libcedrus
+new configure option to use libcedrus: --enable-libcedrus
+
 FFmpeg README
 =============
 
