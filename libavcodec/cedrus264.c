@@ -260,8 +260,12 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	cedrus264Context *c4 = avctx->priv_data;
 	unsigned int size;
 	int result;
+	unsigned int enc_flags = 0;
 
-	c4->ve_regs = cedrus_ve_get(c4->cedrus, CEDRUS_ENGINE_H264_ENC, 0);
+	if (cedrus_get_ve_version(c4->cedrus) >= 0x1633) {
+		enc_flags = 0xC0; 
+	}
+	c4->ve_regs = cedrus_ve_get(c4->cedrus, CEDRUS_ENGINE_H264_ENC, enc_flags);
 
 	/* Input size */
 	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
