@@ -36,8 +36,10 @@
 #include "libavutil/opt.h"
 #include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
+#include "libavutil/imgutils.h"
 #include "avcodec.h"
 #include "internal.h"
+#include "encode.h"
 
 #include "arm/sunxi/ve.h"
 
@@ -265,16 +267,16 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 
 	/* ---- Part end ---- */
 
-	/* Alloc Frame */
+	/* Alloc Frame 
 	avctx->coded_frame = av_frame_alloc();
 	if(!avctx->coded_frame){
 		av_log(avctx, AV_LOG_FATAL, "Cannot allocate frame.\n");
 		return AVERROR(ENOMEM);
-	}
+	}*/
 
 	/* Init variables */
 	c4->frame_num = 0;
-	avctx->coded_frame->quality = c4->qp * FF_QP2LAMBDA;
+	//avctx->coded_frame->quality = c4->qp * FF_QP2LAMBDA;
 
 	return 0;
 }
@@ -286,10 +288,21 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	unsigned int size;
 	int result;
 
-	/* Copy data */
+	/* Copy data
 	result = avpicture_layout((const AVPicture *)frame, AV_PIX_FMT_NV12,
 		avctx->width, avctx->height, c4->input_buf->virt, c4->frame_size);
  	if(result < 0){
+		av_log(avctx, AV_LOG_ERROR, "Input buffer too small.\n");
+		return AVERROR(ENOMEM);
+	}*/
+	result = av_image_copy_to_buffer(c4->input_buf->virt, 
+					    c4->frame_size, 
+					    (const uint8_t**)frame->data, 
+					    frame->linesize, 
+					    AV_PIX_FMT_NV12, 
+					    avctx->width, 
+					    avctx->height, 1);
+	if(result < 0){
 		av_log(avctx, AV_LOG_ERROR, "Input buffer too small.\n");
 		return AVERROR(ENOMEM);
 	}
@@ -333,7 +346,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 
 	size = readl(c4->ve_regs + VE_AVC_VLE_LENGTH) / 8;
 	if(size > 0){
-		if ((result = ff_alloc_packet(pkt, size)) < 0){
+		if ((result = ff_alloc_packet(avctx, pkt, size)) < 0){
 			av_log(avctx, AV_LOG_ERROR, "Packet allocation error.\n");
 			return result;
 		}
@@ -368,7 +381,7 @@ static av_cold int cedrus264_close(AVCodecContext *avctx)
 	ve_unlock();
 
 	/* Free Frame */
-	av_frame_free(&avctx->coded_frame);
+	//av_frame_free(&avctx->coded_frame);
 
 	return 0;
 }
