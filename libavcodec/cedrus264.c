@@ -36,6 +36,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
+#include "libavutil/imgutils.h"
 #include "avcodec.h"
 #include "internal.h"
 
@@ -285,14 +286,21 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	cedrus264Context *c4 = avctx->priv_data;
 	unsigned int size;
 	int result;
+	uint8_t *dst_data[4];
+	int dst_width;
+	int dst_height;
+	int dst_size;
 
 	/* Copy data */
-	result = avpicture_layout((const AVPicture *)frame, PIX_FMT_NV12,
-		avctx->width, avctx->height, c4->input_buf->virt, c4->frame_size);
- 	if(result < 0){
-		av_log(avctx, AV_LOG_ERROR, "Input buffer too small.\n");
-		return AVERROR(ENOMEM);
-	}
+	dst_width = (avctx->width + 15) & ~15;
+	dst_height = (avctx->height + 15) & ~15;
+	dst_size = dst_width * dst_height;
+	dst_data[0] = c4->input_buf->virt;
+	dst_data[1] = dst_data[0] + dst_size;
+	dst_data[2] = 0;
+	dst_data[3] = 0;
+	av_image_copy(dst_data, frame->linesize, (const uint8_t **)frame->data,
+                  frame->linesize, PIX_FMT_NV12, avctx->width, avctx->height);
 	ve_flush_cache(c4->input_buf);
 
 	/* flush output buffer, otherwise we might read old cached data */
@@ -303,7 +311,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	writel(c4->output_buf->phys, c4->ve_regs + VE_AVC_VLE_ADDR);
 	writel(c4->output_buf->phys + CEDAR_OUTPUT_BUF_SIZE - 1, c4->ve_regs + VE_AVC_VLE_END);
 
-	writel(0x04000000, c4->ve_regs + 0xb8c); // ???
+	writel(0x04000000, c4->ve_regs + VE_AVC_VLE_MAX);
 	
 	put_start_code(c4->ve_regs);
 	put_aud(c4->ve_regs);
