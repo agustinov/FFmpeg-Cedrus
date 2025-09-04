@@ -1,46 +1,19 @@
-FFmpeg README
-=============
+FFmpeg with Allwinner HW h264 cedrus encoder support for Allwinner H3 CPU
 
-FFmpeg is a collection of libraries and tools to process multimedia content
-such as audio, video, subtitles and related metadata.
+These are modified sources of the port of **FFmpeg 3.4** with Allwinner HW H264 cedrus encoder originally located here: https://github.com/Alcantor/FFmpeg/tree/sunxi-cedrus.
 
-## Libraries
+https://github.com/stulluk/FFmpeg-Cedrus mentioned jemk and alcantor but didn't change any code.
 
-* `libavcodec` provides implementation of a wider range of codecs.
-* `libavformat` implements streaming protocols, container formats and basic I/O access.
-* `libavutil` includes hashers, decompressors and miscellaneous utility functions.
-* `libavfilter` provides a mean to alter decoded Audio and Video through chain of filters.
-* `libavdevice` provides an abstraction to access capture and playback devices.
-* `libswresample` implements audio mixing and resampling routines.
-* `libswscale` implements color conversion and scaling routines.
+https://github.com/uboborov/ffmpeg_h264_H3 added Allwinner H3 support and made diff for https://github.com/stulluk/FFmpeg-Cedrus.
 
-## Tools
+https://github.com/agustinov/FFmpeg-cedrus added H3 diff files back to FFmpeg, fixed green artefact on 1080p resolution and restored reference to original https://github.com/Alcantor/FFmpeg/tree/sunxi-cedrus.
 
-* [ffmpeg](https://ffmpeg.org/ffmpeg.html) is a command line toolbox to
-  manipulate, convert and stream multimedia content.
-* [ffplay](https://ffmpeg.org/ffplay.html) is a minimalistic multimedia player.
-* [ffprobe](https://ffmpeg.org/ffprobe.html) is a simple analysis tool to inspect
-  multimedia content.
-* Additional small tools such as `aviocat`, `ismindex` and `qt-faststart`.
+https://github.com/avafinger/ffmpeg-3.3.4_cedrus264 ported to FFmpeg 3.3.
 
-## Documentation
+https://github.com/danielkucera/FFmpeg/tree/cedrus264 ported to FFmpeg 3.4.
 
-The offline documentation is available in the **doc/** directory.
+Configure FFmpeg and then build it.
 
-The online documentation is available in the main [website](https://ffmpeg.org)
-and in the [wiki](https://trac.ffmpeg.org).
-
-### Examples
-
-Coding examples are available in the **doc/examples** directory.
-
-## License
-
-FFmpeg codebase is mainly LGPL-licensed with optional components licensed under
-GPL. Please refer to the LICENSE file for detailed information.
-
-## Contributing
-
-Patches should be submitted to the ffmpeg-devel mailing list using
-`git format-patch` or `git send-email`. Github pull requests should be
-avoided because they are not part of our review process and will be ignored.
+    ./configure --prefix=/usr --enable-nonfree --enable-gpl --enable-version3 --enable-vdpau --enable-libx264 --enable-libmp3lame --enable-libpulse --enable-libv4l2
+	
+    make && sudo make install
