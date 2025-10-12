@@ -43,8 +43,8 @@
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
-static int fd = -1, lockfd = -1;	
-//void memlist_add(struct ve_mem *mem);	
+static int lockfd = -1;
+//void memlist_add(struct ve_mem *mem);
 //struct mem_list *memlist_find(struct ve_mem *mem);
 //int memlist_del(struct ve_mem *mem);
 //void memlist_del_all();
@@ -81,8 +81,9 @@ struct mem_list {
 
 static void memlist_add(struct ve_mem *mem) {
 	struct mem_list *m, *k;
+
 	if (memlist == NULL) {
-		memlist = (struct mem_list *)malloc(sizeof (struct mem_list));
+		memlist = malloc(sizeof (struct mem_list));
 		memlist->mem = mem;
 		memlist->next = NULL;
 		return;
@@ -92,7 +93,7 @@ static void memlist_add(struct ve_mem *mem) {
 		k = m;
 		m = m->next;
 	}
-	m = (struct mem_list *)malloc(sizeof (struct mem_list));
+	m = malloc(sizeof (struct mem_list));
 	m->mem = mem;
 	m->next = NULL;
 	k->next = m;
@@ -100,7 +101,7 @@ static void memlist_add(struct ve_mem *mem) {
 
 static struct mem_list *memlist_find(struct ve_mem *mem) {
 	struct mem_list *m = memlist;
-	
+
 	while (m) {
 		if (m->mem == mem) return m;
 		m = m->next;
@@ -111,7 +112,7 @@ static struct mem_list *memlist_find(struct ve_mem *mem) {
 static int memlist_del(struct ve_mem *mem) {
 	struct mem_list *m = memlist;
 	struct mem_list *prev = m;
-	
+
 	while (m) {
 		if (m->mem == mem) {
 			prev->next = m->next;
@@ -126,7 +127,7 @@ static int memlist_del(struct ve_mem *mem) {
 
 static void memlist_del_all(void) {
 	struct mem_list *m = memlist;
-	
+
 	while (m) {
 		struct mem_list *k = m;
 		m = m->next;
@@ -137,10 +138,10 @@ static void memlist_del_all(void) {
 
 int ve_open(void)
 {
+	struct cedarv_env_infomation info;
+
 	if (ve.fd != -1)
 		return 0;
-
-	struct cedarv_env_infomation info;
 
 	ve.fd = open(DEVICE, O_RDWR);
 	if (ve.fd == -1)
@@ -168,15 +169,16 @@ int ve_open(void)
 	ioctl(ve.fd, IOCTL_SET_VE_FREQ, 320);
 	ioctl(ve.fd, IOCTL_RESET_VE, 0);
 
-	writel(0x00130007, ve.regs + VE_CTRL);
+	writel(0x00130007, (uint8_t *)ve.regs + VE_CTRL);
 
-	ve.version = readl(ve.regs + VE_VERSION) >> 16;
-	printf("[VDPAU SUNXI] VE version 0x%04x opened.\n", ve.version);
+	ve.version = readl((uint8_t *)ve.regs + VE_VERSION) >> 16;
+	printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", ve.version);
 
 	return 1;
 
 unmap:
 	munmap(ve.regs, 0x800);
+
 close:
 	close(ve.fd);
 	ve.fd = -1;
@@ -240,34 +242,39 @@ void *ve_get(int engine, uint32_t flags)
 	if (pthread_mutex_lock(&ve.device_lock))
 		return NULL;
 	if (ve_get_version() >= 0x1633)
-		writel(0x001300C0 | (engine & 0xf) | (flags & ~0xf), ve.regs + VE_CTRL);
+		writel(0x001300C0 | (engine & 0xf) | (flags & ~0xf), (uint8_t *)ve.regs + VE_CTRL);
 	else
-		writel(0x00130000 | (engine & 0xf) | (flags & ~0xf), ve.regs + VE_CTRL);
+		writel(0x00130000 | (engine & 0xf) | (flags & ~0xf), (uint8_t *)ve.regs + VE_CTRL);
 
 	return ve.regs;
 }
 
 void ve_put(void)
 {
-	writel(0x00130007, ve.regs + VE_CTRL);
+	writel(0x00130007, (uint8_t *)ve.regs + VE_CTRL);
 	pthread_mutex_unlock(&ve.device_lock);
 }
 
 static struct ve_mem *ion_malloc(int size)
 {
-	struct ion_mem *imem = calloc(1, sizeof(struct ion_mem));
+	struct ion_mem *imem;
+	struct ion_allocation_data alloc;
+	struct ion_fd_data map;
+	sunxi_phys_data phys;
+	struct ion_custom_data custom;
+
+	imem = calloc(1, sizeof(struct ion_mem));
+
 	if (!imem)
 	{
 		perror("calloc ion_buffer failed");
 		return NULL;
 	}
 
-	struct ion_allocation_data alloc = {
-		.len = size,
-		.align = 4096,
-		.heap_id_mask = ION_HEAP_TYPE_DMA,
-		.flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC,
-	};
+	alloc.len = size;
+	alloc.align = 4096;
+	alloc.heap_id_mask = ION_HEAP_TYPE_DMA;
+	alloc.flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
 
 	if (ioctl(ve.ion_fd, ION_IOC_ALLOC, &alloc))
 	{
@@ -279,9 +286,7 @@ static struct ve_mem *ion_malloc(int size)
 	imem->handle = alloc.handle;
 	imem->mem.size = size;
 
-	struct ion_fd_data map = {
-		.handle = imem->handle,
-	};
+	map.handle = imem->handle;
 
 	if (ioctl(ve.ion_fd, ION_IOC_MAP, &map))
 	{
@@ -299,14 +304,10 @@ static struct ve_mem *ion_malloc(int size)
 		return NULL;
 	}
 
-	sunxi_phys_data phys = {
-		.handle = imem->handle,
-	};
+	phys.handle = imem->handle;
 
-	struct ion_custom_data custom = {
-		.cmd = ION_IOC_SUNXI_PHYS_ADDR,
-		.arg = (unsigned long)(&phys),
-	};
+	custom.cmd = ION_IOC_SUNXI_PHYS_ADDR;
+	custom.arg = (unsigned long)(&phys);
 
 	if (ioctl(ve.ion_fd, ION_IOC_CUSTOM, &custom))
 	{
@@ -318,12 +319,17 @@ static struct ve_mem *ion_malloc(int size)
 	imem->mem.phys = phys.phys_addr - 0x40000000;
 
 	memlist_add(&imem->mem);
-	
+
 	return &imem->mem;
 }
 
 struct ve_mem *ve_malloc(int size)
 {
+	void *addr = NULL;
+	struct ve_mem *ret = NULL;
+	struct memchunk_t *c, *best_chunk = NULL;
+	int left_size;
+
 	if (ve.fd == -1)
 		return NULL;
 
@@ -333,11 +339,7 @@ struct ve_mem *ve_malloc(int size)
 	if (pthread_rwlock_wrlock(&ve.memory_lock))
 		return NULL;
 
-	void *addr = NULL;
-	struct ve_mem *ret = NULL;
-
 	size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-	struct memchunk_t *c, *best_chunk = NULL;
 	for (c = &ve.first_memchunk; c != NULL; c = c->next)
 	{
 		if(c->mem.virt == NULL && c->mem.size >= size)
@@ -353,7 +355,7 @@ struct ve_mem *ve_malloc(int size)
 	if (!best_chunk)
 		goto out;
 
-	int left_size = best_chunk->mem.size - size;
+	left_size = best_chunk->mem.size - size;
 
 	addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, ve.fd, best_chunk->mem.phys + PAGE_OFFSET);
 	if (addr == MAP_FAILED)
@@ -376,6 +378,7 @@ struct ve_mem *ve_malloc(int size)
 	}
 
 	ret = &best_chunk->mem;
+
 out:
 	pthread_rwlock_unlock(&ve.memory_lock);
 	return ret;
@@ -383,24 +386,25 @@ out:
 
 static void ion_free(struct ve_mem *mem)
 {
+	struct ion_mem *imem;
+	struct ion_handle_data handle;
+
 	if (ve.ion_fd == -1 || !mem)
 		return;
 
-	struct ion_mem *imem = container_of(mem, struct ion_mem, mem);
+	imem = container_of(mem, struct ion_mem, mem);
 
 	if (munmap(mem->virt, mem->size))
 	{
 		perror("munmap failed");
 		return;
 	}
-	
+
 	memlist_del(mem);
 
 	close(imem->fd);
 
-	struct ion_handle_data handle = {
-		.handle = imem->handle,
-	};
+	handle.handle = imem->handle;
 
 	if (ioctl(ve.ion_fd, ION_IOC_FREE, &handle))
 	{
@@ -412,6 +416,8 @@ static void ion_free(struct ve_mem *mem)
 
 void ve_free(struct ve_mem *mem)
 {
+	struct memchunk_t *c;
+
 	if (ve.fd == -1)
 		return;
 
@@ -424,7 +430,6 @@ void ve_free(struct ve_mem *mem)
 	if (pthread_rwlock_wrlock(&ve.memory_lock))
 		return;
 
-	struct memchunk_t *c;
 	for (c = &ve.first_memchunk; c != NULL; c = c->next)
 	{
 		if (&c->mem == mem)
@@ -455,21 +460,23 @@ void ve_free(struct ve_mem *mem)
 uint32_t ve_virt2phys(void *ptr)
 {
 	uint32_t addr = 0;
-	
+	struct mem_list *m;
+	struct ve_mem *mem;
+	struct memchunk_t *c;
+
 	if (ve.fd == -1)
 		return 0;
-	
+
 	if (ve.ion_fd != -1) {
-		
-		struct mem_list *m = memlist;
-		
+		m = memlist;
+
 		while (m) {
-			struct ve_mem *mem = m->mem;
+			mem = m->mem;
 			if (!mem) {
 				m = m->next;
 				continue;
 			}
-			
+
 			//printf("c->mem: virt 0x%08X, phys 0x%08X, ptr 0x%08X\n", (unsigned int)mem->virt, mem->phys, (unsigned int)ptr);
 			if (mem->virt == NULL)
 				continue;
@@ -479,23 +486,19 @@ uint32_t ve_virt2phys(void *ptr)
 				addr = mem->phys;
 				break;
 			}
-			else if (ptr > mem->virt && ptr < (mem->virt + mem->size))
+			else if (ptr > mem->virt && (uint32_t)ptr < ((uint32_t)mem->virt + mem->size))
 			{
-				addr = mem->phys + (ptr - mem->virt);
+				addr = mem->phys + ((uint32_t)ptr - (uint32_t)mem->virt);
 				break;
 			}
 			m = m->next;
 		}
 		return addr;
 	}
-	
 
 	//if (pthread_rwlock_rdlock(&ve.memory_lock))
 	//	return 0;
 
-	
-
-	struct memchunk_t *c;
 	for (c = &ve.first_memchunk; c != NULL; c = c->next)
 	{
 		printf("c->mem: virt 0x%08X, phys 0x%08X, ptr 0x%08X\n", (unsigned int)c->mem.virt, c->mem.phys, (unsigned int)ptr);
@@ -507,9 +510,9 @@ uint32_t ve_virt2phys(void *ptr)
 			addr = c->mem.phys;
 			break;
 		}
-		else if (ptr > c->mem.virt && ptr < (c->mem.virt + c->mem.size))
+		else if ((ptr > c->mem.virt) && ((uint32_t)ptr < ((uint32_t)c->mem.virt + c->mem.size)))
 		{
-			addr = c->mem.phys + (ptr - c->mem.virt);
+			addr = c->mem.phys + ((uint32_t)ptr - (uint32_t)c->mem.virt);
 			break;
 		}
 	}
@@ -518,9 +521,11 @@ uint32_t ve_virt2phys(void *ptr)
 	return addr;
 }
 
-
 void ve_flush_cache(struct ve_mem *mem)
 {
+	struct ion_custom_data cache;
+	struct cedarv_cache_range range;
+
 	if (ve.fd == -1)
 		return;
 
@@ -531,21 +536,16 @@ void ve_flush_cache(struct ve_mem *mem)
 			.end = (long)mem->virt + mem->size,
 		};
 
-		struct ion_custom_data cache = {
-			.cmd = ION_IOC_SUNXI_FLUSH_RANGE,
-			.arg = (unsigned long)(&range),
-		};
+		cache.cmd = ION_IOC_SUNXI_FLUSH_RANGE;
+		cache.arg = (unsigned long)(&range);
 
 		if (ioctl(ve.ion_fd, ION_IOC_CUSTOM, &cache))
 			perror("ION_IOC_CUSTOM(SUNXI_FLUSH_RANGE) failed");
 	}
 	else
 	{
-		struct cedarv_cache_range range =
-		{
-			.start = (int)mem->virt,
-			.end = (int)mem->virt + mem->size
-		};
+		range.start = (long)mem->virt;
+		range.end = (long)mem->virt + mem->size;
 
 		ioctl(ve.fd, IOCTL_FLUSH_CACHE, (void*)(&range));
 	}
