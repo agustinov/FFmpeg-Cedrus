@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "avcodec.h"
 #include "mqc.h"
 
 const uint16_t ff_mqc_qe[2 * 47] = {

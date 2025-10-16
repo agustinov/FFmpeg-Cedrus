@@ -27,10 +27,11 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/file.h>
-#include "ve.h"
-#include "ion.h"
-#include "ion_sunxi.h"
-#include "cedar_ve.h"
+#include "libavutil/arm/cpu.h"
+#include "sunxi/ve.h"
+#include "sunxi/ion.h"
+#include "sunxi/ion_sunxi.h"
+#include "sunxi/cedar_ve.h"
 
 #define LOCKFILE "/tmp/cedar_dev.lck"
 #define DEVICE "/dev/cedar_dev"
