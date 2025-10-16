@@ -25,6 +25,7 @@
  * @author Kamil Nowosad
  */
 
+#include "avcodec.h"
 #include "mqc.h"
 
 static void byteout(MqcState *mqc)

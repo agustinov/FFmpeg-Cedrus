@@ -24,6 +24,7 @@
  * X-Face common data and utilities definition.
  */
 
+#include "avcodec.h"
 #include "xface.h"
 
 void ff_big_add(BigInt *b, uint8_t a)
