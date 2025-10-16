@@ -29,6 +29,7 @@
 #include <sys/file.h>
 #include "libavutil/arm/cpu.h"
 #include "sunxi/ve.h"
+#include "sunxi/ve_regs.h"
 #include "sunxi/ion.h"
 #include "sunxi/ion_sunxi.h"
 #include "sunxi/cedar_ve.h"
