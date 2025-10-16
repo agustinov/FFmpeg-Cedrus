@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include "libavutil/attributes.h"
+#include "libavutil/arm/cpu.h"
 #include "libavcodec/vc1dsp.h"
 #include "vc1dsp.h"
 

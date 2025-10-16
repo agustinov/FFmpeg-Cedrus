@@ -30,6 +30,7 @@
 
 #include "libavutil/attributes.h"
 
+#include "avcodec.h"
 #include "mqc.h"
 
 /* MQ coder context state structure */

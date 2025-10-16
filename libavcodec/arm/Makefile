@@ -48,7 +48,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += arm/vp6dsp_init_arm.o
 OBJS-$(CONFIG_VP9_DECODER)             += arm/vp9dsp_init_10bpp_arm.o   \
                                           arm/vp9dsp_init_12bpp_arm.o   \
                                           arm/vp9dsp_init_arm.o
-
+OBJS-$(CONFIG_CEDRUS264_ENCODER)       += arm/sunxi_ve.o
 
 # ARMv5 optimizations
 # subsystems

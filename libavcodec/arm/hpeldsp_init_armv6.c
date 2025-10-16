@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "libavutil/attributes.h"
+#include "libavutil/arm/cpu.h"
 #include "hpeldsp_arm.h"
 
 void ff_put_pixels16_armv6(uint8_t *, const uint8_t *, ptrdiff_t, int);
