@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 
+#include "avcodec.h"
 #include "svq1.h"
 
 static const uint16_t checksum_table[256] = {
