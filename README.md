@@ -70,16 +70,16 @@ For the 2.3-cedrus branch you can use the standard Linux-sunxi libcedrus and lib
 from https://github.com/linux-sunxi/libcedrus and https://github.com/linux-sunxi/libvdpau-sunxi.
 
 For the 3.4-cedrus and 2.8-libcedrus branches you need to use the modified libcedrus and libvdpau-sunxi libraries
-from https://github.com/uboborov/libcedrus-H3 and https://github.com/uboborov/libvdpau-sunxi-H3:
+from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi:
 
 	sudo apt-get install libpixman-1-dev libxt-dev libxext-dev
-	git clone https://github.com/uboborov/libcedrus-H3.git
-	cd libcedrus-H3
+	git clone https://github.com/agustinov/libcedrus.git
+	cd libcedrus
 	make
 	sudo make install
 	cd ..
-	git clone https://github.com/uboborov/libvdpau-sunxi-H3.git
-	cd libvdpau-sunxi-H3
+	git clone https://github.com/agustinov/libvdpau-sunxi.git
+	cd libvdpau-sunxi
 	make
 	sudo make install
 	cd ..

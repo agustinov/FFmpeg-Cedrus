@@ -2,21 +2,22 @@
  * Cedrus 264 Video Encoder
  * Copyright (c) 2014 Julien Folly
  *
- * This file is part of Libav.
+ * byte stream utils from:
+ * https://github.com/jemk/cedrus/tree/master/h264enc
  *
- * Libav is free software; you can redistribute it and/or
+ * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * Libav is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with Libav; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 /**
@@ -43,9 +44,6 @@
 #include "avcodec.h"
 #include "internal.h"
 
-/* byte stream utils from:
- * https://github.com/jemk/cedrus/tree/master/h264enc
- */
 static void put_bits(void* regs, uint32_t x, int num)
 {
 	writel(x, (uint8_t *)regs + VE_AVC_BASIC_BITS);
@@ -179,7 +177,7 @@ static void put_aud(void* regs)
 #define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
 typedef struct cedrus264Context {
 	AVClass *class;
-	cedrus_t *cedrus;
+	cedrus_t *cedrus_dev;
 	uint8_t *ve_regs;
 	cedrus_mem_t *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
 	unsigned int tile_w, tile_w2, tile_h, tile_h2, mb_w, mb_h, plane_size, frame_size;
@@ -190,7 +188,7 @@ typedef struct cedrus264Context {
 static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 {
 	cedrus264Context *c4 = avctx->priv_data;
-	
+
 	/* Check pixel format */
 	if(avctx->pix_fmt != AV_PIX_FMT_NV12){
 		av_log(avctx, AV_LOG_FATAL, "Unsupported pixel format (use -pix_fmt nv12)!\n");
@@ -214,11 +212,12 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	} */
 
 	/* Open VE */
-	c4->cedrus = cedrus_open();
-	if(!c4->cedrus){
+	c4->cedrus_dev = cedrus_open();
+	if(!c4->cedrus_dev){
 		av_log(avctx, AV_LOG_ERROR, "VE Open error.\n");
 		return AVERROR(ENOMEM);
 	}
+	else printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", cedrus_get_ve_version(c4->cedrus_dev));
 
 	/* Compute tile, macroblock and plane size */
 	c4->tile_w = (avctx->width + 31) & ~31;
@@ -231,11 +230,11 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	c4->frame_size = c4->plane_size + c4->plane_size / 2;
 
 	/* Alloc buffers */
-	c4->input_buf = cedrus_mem_alloc(c4->cedrus, c4->frame_size);
-	c4->output_buf = cedrus_mem_alloc(c4->cedrus, CEDAR_OUTPUT_BUF_SIZE);
-	c4->reconstruct_buf = cedrus_mem_alloc(c4->cedrus, c4->tile_w * c4->tile_h + c4->tile_w * c4->tile_h2);
-	c4->small_luma_buf = cedrus_mem_alloc(c4->cedrus, c4->tile_w2 * c4->tile_h2);
-	c4->mb_info_buf = cedrus_mem_alloc(c4->cedrus, 0x1000);
+	c4->input_buf = cedrus_mem_alloc(c4->cedrus_dev, c4->frame_size);
+	c4->output_buf = cedrus_mem_alloc(c4->cedrus_dev, CEDAR_OUTPUT_BUF_SIZE);
+	c4->reconstruct_buf = cedrus_mem_alloc(c4->cedrus_dev, c4->tile_w * c4->tile_h + c4->tile_w * c4->tile_h2);
+	c4->small_luma_buf = cedrus_mem_alloc(c4->cedrus_dev, c4->tile_w2 * c4->tile_h2);
+	c4->mb_info_buf = cedrus_mem_alloc(c4->cedrus_dev, 0x1000);
 	if(!c4->input_buf || !c4->output_buf || !c4->reconstruct_buf || !c4->small_luma_buf || !c4->mb_info_buf){
 		av_log(avctx, AV_LOG_FATAL, "Cannot allocate frame.\n");
 		return AVERROR(ENOMEM);
@@ -264,10 +263,10 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	unsigned int enc_flags = 0;
 	uint8_t *dst_data[4];
 
-	if (cedrus_get_ve_version(c4->cedrus) >= 0x1633) {
+	if (cedrus_get_ve_version(c4->cedrus_dev) >= 0x1633) {
 		enc_flags = 0xC0; 
 	}
-	c4->ve_regs = cedrus_ve_get(c4->cedrus, CEDRUS_ENGINE_H264_ENC, enc_flags);
+	c4->ve_regs = cedrus_ve_get(c4->cedrus_dev, CEDRUS_ENGINE_AVC, enc_flags);
 
 	/* Input size */
 	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
@@ -300,14 +299,14 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 
 	/* flush output buffer, otherwise we might read old cached data */
 	cedrus_mem_flush_cache(c4->output_buf);
-	
+
 	/* Set output buffer */
 	writel(0x0, c4->ve_regs + VE_AVC_VLE_OFFSET);
 	writel(cedrus_mem_get_phys_addr(c4->output_buf), c4->ve_regs + VE_AVC_VLE_ADDR);
 	writel(cedrus_mem_get_phys_addr(c4->output_buf) + CEDAR_OUTPUT_BUF_SIZE - 1, c4->ve_regs + VE_AVC_VLE_END);
 
-	writel(0x04000000, c4->ve_regs + 0xb8c); // VE_AVC_VLE_MAX
-	
+	writel(0x04000000, c4->ve_regs + VE_AVC_VLE_MAX);
+
 	put_start_code(c4->ve_regs);
 	put_aud(c4->ve_regs);
 	put_rbsp_trailing_bits(c4->ve_regs);
@@ -330,14 +329,14 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	writel(readl(c4->ve_regs + VE_AVC_STATUS) | 0x7, c4->ve_regs + VE_AVC_STATUS);
 
 	writel(0x8, c4->ve_regs + VE_AVC_TRIGGER);
-	cedrus_ve_wait(c4->cedrus, 1);
+	cedrus_ve_wait(c4->cedrus_dev, 1);
 
 	writel(readl(c4->ve_regs + VE_AVC_STATUS), c4->ve_regs + VE_AVC_STATUS);
 
 	size = readl(c4->ve_regs + VE_AVC_VLE_LENGTH) / 8;
 	if(size > 0){
 		if ((result = ff_alloc_packet(pkt, size)) < 0){
-			cedrus_ve_put(c4->cedrus);
+			cedrus_ve_put(c4->cedrus_dev);
 			av_log(avctx, AV_LOG_ERROR, "Packet allocation error.\n");
 			return result;
 		}
@@ -350,7 +349,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 
 	c4->frame_num++;
 
-	cedrus_ve_put(c4->cedrus);
+	cedrus_ve_put(c4->cedrus_dev);
 	return 0;
 }
 
@@ -366,7 +365,7 @@ static av_cold int cedrus264_close(AVCodecContext *avctx)
 	cedrus_mem_free(c4->mb_info_buf);
 
 	/* Disable and close VE */
-	cedrus_close(c4->cedrus);
+	cedrus_close(c4->cedrus_dev);
 	/* ve_unlock(); */
 
 	/* Free Frame */
