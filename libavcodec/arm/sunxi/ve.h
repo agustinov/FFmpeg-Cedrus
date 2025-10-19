@@ -22,9 +22,11 @@
 
 #include <stdint.h>
 
+typedef struct cedrus cedrus_t;
+
 int ve_lock(void);
 void ve_unlock(void);
-int ve_open(void);
+cedrus_t *ve_open(void);
 void ve_close(void);
 int ve_get_version(void);
 int ve_wait(int timeout);

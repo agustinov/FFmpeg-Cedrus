@@ -178,6 +178,7 @@ static void put_aud(void* regs)
 #define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
 typedef struct cedrus264Context {
 	AVClass *class;
+	cedrus_t *cedrus_dev;
 	uint8_t *ve_regs;
 	struct ve_mem *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
 	unsigned int tile_w, tile_w2, tile_h, tile_h2, mb_w, mb_h, plane_size, frame_size;
@@ -188,7 +189,7 @@ typedef struct cedrus264Context {
 static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 {
 	cedrus264Context *c4 = avctx->priv_data;
-	
+
 	/* Check pixel format */
 	if(avctx->pix_fmt != AV_PIX_FMT_NV12){
 		av_log(avctx, AV_LOG_FATAL, "Unsupported pixel format (use -pix_fmt nv12)!\n");
@@ -212,11 +213,12 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	}
 
 	/* Open VE */
-	if(!ve_open()){
+	c4->cedrus_dev = ve_open();
+	if(!c4->cedrus_dev){
 		av_log(avctx, AV_LOG_ERROR, "VE Open error.\n");
 		return AVERROR(ENOMEM);
 	}
-	
+	else printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", ve_get_version());
 
 	/* Compute tile, macroblock and plane size */
 	c4->tile_w = (avctx->width + 31) & ~31;
@@ -240,7 +242,7 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	}
 
 	/* Activate AVC engine */
-	c4->ve_regs = ve_get(VE_ENGINE_AVC, 0);
+	c4->ve_regs = ve_get(VE_CTRL_ENGINE_AVC, 0);
 
 	/* ---- Part to put in cedrus264_encode if engine is used by multiple process (Need to be checked) */
 
@@ -251,7 +253,7 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 	/* Input buffer */
 	writel(c4->input_buf->phys, c4->ve_regs + VE_ISP_INPUT_LUMA);
 	writel(c4->input_buf->phys + c4->plane_size, c4->ve_regs + VE_ISP_INPUT_CHROMA);
-	
+
 	/* Reference output */
 	writel(c4->reconstruct_buf->phys, c4->ve_regs + VE_AVC_REC_LUMA);
 	writel(c4->reconstruct_buf->phys + c4->tile_w * c4->tile_h, c4->ve_regs + VE_AVC_REC_CHROMA);
@@ -299,14 +301,14 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 
 	/* flush output buffer, otherwise we might read old cached data */
 	ve_flush_cache(c4->output_buf);
-	
+
 	/* Set output buffer */
 	writel(0x0, c4->ve_regs + VE_AVC_VLE_OFFSET);
 	writel(c4->output_buf->phys, c4->ve_regs + VE_AVC_VLE_ADDR);
 	writel(c4->output_buf->phys + CEDAR_OUTPUT_BUF_SIZE - 1, c4->ve_regs + VE_AVC_VLE_END);
 
 	writel(0x04000000, c4->ve_regs + VE_AVC_VLE_MAX);
-	
+
 	put_start_code(c4->ve_regs);
 	put_aud(c4->ve_regs);
 	put_rbsp_trailing_bits(c4->ve_regs);
