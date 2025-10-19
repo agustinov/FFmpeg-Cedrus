@@ -64,7 +64,7 @@ struct ion_mem
 	struct ve_mem mem;
 };
 
-static struct
+static struct cedrus
 {
 	int fd;
 	int ion_fd;
@@ -138,7 +138,7 @@ static void memlist_del_all(void) {
 	memlist = NULL;
 }
 
-int ve_open(void)
+cedrus_t *ve_open(void)
 {
 	struct cedarv_env_infomation info;
 
@@ -171,12 +171,12 @@ int ve_open(void)
 	ioctl(ve.fd, IOCTL_SET_VE_FREQ, 320);
 	ioctl(ve.fd, IOCTL_RESET_VE, 0);
 
-	writel(0x00130007, (uint8_t *)ve.regs + VE_CTRL);
+	writel(0x00130000 | VE_CTRL_ENGINE_RESET, (uint8_t *)ve.regs + VE_CTRL);
 
 	ve.version = readl((uint8_t *)ve.regs + VE_VERSION) >> 16;
-	printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", ve.version);
+	//printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", ve.version);
 
-	return 1;
+	return &ve;
 
 unmap:
 	munmap(ve.regs, 0x800);
@@ -244,16 +244,16 @@ void *ve_get(int engine, uint32_t flags)
 	if (pthread_mutex_lock(&ve.device_lock))
 		return NULL;
 	if (ve_get_version() >= 0x1633)
-		writel(0x001300C0 | (engine & 0xf) | (flags & ~0xf), (uint8_t *)ve.regs + VE_CTRL);
+		writel(0x001300C0 | (engine & VE_CTRL_ENGINE_FIELD) | (flags & ~VE_CTRL_ENGINE_FIELD), (uint8_t *)ve.regs + VE_CTRL);
 	else
-		writel(0x00130000 | (engine & 0xf) | (flags & ~0xf), (uint8_t *)ve.regs + VE_CTRL);
+		writel(0x00130000 | (engine & VE_CTRL_ENGINE_FIELD) | (flags & ~VE_CTRL_ENGINE_FIELD), (uint8_t *)ve.regs + VE_CTRL);
 
 	return ve.regs;
 }
 
 void ve_put(void)
 {
-	writel(0x00130007, (uint8_t *)ve.regs + VE_CTRL);
+	writel(0x00130000 | VE_CTRL_ENGINE_RESET, (uint8_t *)ve.regs + VE_CTRL);
 	pthread_mutex_unlock(&ve.device_lock);
 }
 
