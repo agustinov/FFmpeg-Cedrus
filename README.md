@@ -102,16 +102,16 @@ you need to run ./configure again (with the same options) and then rebuild FFmpe
 
 After installing all dependencies, configure FFmpeg before building (2.3-cedrus or 3.4-cedrus branch):
 
-	./configure --prefix=/usr --enable-gpl --enable-version3 --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau
+	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau
 
 If you want to build the 2.8-libcedrus branch, use the additional --enable-libcedrus option:
 
-	./configure --prefix=/usr --enable-gpl --enable-version3 --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --enable-libcedrus
+	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --enable-libcedrus
 
 If you have GCC version 11 or higher and get the error "C compiler test failed", see the config.log file.
 If you see message "cc1: error: ‘-mfloat-abi=hard’: selected architecture lacks an FPU", use the --cpu=armv7-a+fp option:
 
-	./configure --prefix=/usr --enable-gpl --enable-version3 --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --cpu=armv7-a+fp
+	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --cpu=armv7-a+fp
 
 If you get the error: "/usr/bin/ld: libavcodec/file.o: relocation R_ARM_THM_MOVW_ABS_NC against 'symbol' can not be used when making a shared object; recompile with -fPIC 
 libavcodec/file.o: error adding symbols: Bad value",
@@ -119,7 +119,7 @@ you can use the --disable-shared --enable-static options for a static build
 or clean the previously built files and try using the additional --enable-shared --enable-pic --extra-ldflags=-Wl,-Bsymbolic options for a shared build:
 
 	make distclean
-	./configure --prefix=/usr --enable-gpl --enable-version3 --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --enable-shared --enable-pic --extra-ldflags=-Wl,-Bsymbolic
+	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --enable-shared --enable-pic --extra-ldflags=-Wl,-Bsymbolic
 
 After configuration, build FFmpeg (this may take a long time, over an hour):
 
@@ -144,7 +144,7 @@ When you have installed FFmpeg, run it:
 If you want to run compiled FFmpeg on another system or have installed another FFmpeg, it may be useful to build a static application without external dependencies.
 Use the --disable-shared --enable-static options for a static build of FFmpeg to avoid conflicts with your currently installed FFmpeg. 
 
-	./configure --prefix=/usr --enable-gpl --enable-version3 --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --disable-shared --enable-static
+	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau --disable-shared --enable-static
 	make
 
 After building your local FFmpeg, you can run it from the local build path without installing:
@@ -156,7 +156,7 @@ After building your local FFmpeg, you can run it from the local build path witho
 
 Typical usage for encoding video from a file:
 
-	ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -pix_fmt nv12 -c:v cedrus264 -r 30 -qp 20 encoded_file.mp4
+	ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -c:v cedrus264 -r 30 -qp 20 encoded_file.mp4
 
 FFmpeg options:
 
@@ -164,24 +164,27 @@ FFmpeg options:
 	-f rawvideo sets unencoded raw video
 	-pix_fmt nv12 sets the pixel format according to the input file
 	-i inputfile sets the file input
-	-pix_fmt nv12 is the only pixel format supported by the Cedrus encoder
 	-c:v cedrus264 (or -vcodec cedrus264) sets the Allwinner Cedrus H264 hardware encoder
 	-r 30 sets the framerate (fps)
 	-qp 20 sets the video quality in the range 2-30 (instead of the bitrate), omitting this option may result in poor video quality
 
 If encoding from the AVI inputfile, FFmpeg automatically gets the video format, resolution, framerate, time from the input file.
 
-If you access to the system via SSH terminal or using server Linux without desktop and get "VE open error", 
-root privileges (sudo) may be required:
+If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the additional option -pix_fmt nv12 for the output file:
 
-	sudo ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -pix_fmt nv12 -c:v cedrus264 -r 30 -qp 20 encoded_file.mp4
+	ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -c:v cedrus264 -pix_fmt nv12 -r 30 -qp 20 encoded_file.mp4
+
+If you access to the system via a terminal (COM-port or SSH) or using a server Linux without a desktop 
+and get the error "VE in use!" or "VE open error", root privileges (sudo) may be required:
+
+	sudo ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -c:v cedrus264 -r 30 -qp 20 encoded_file.mp4
 
 
 ## 5. Encoding video from camera
 
 Typical usage for encoding video from a camera:
 
-	ffmpeg -f v4l2 -channel 0 -s 640x480 -i /dev/video0 -pix_fmt nv12 -c:v cedrus264 -r 30 -t 15 -qp 20 test_camera.mp4
+	ffmpeg -f v4l2 -channel 0 -s 640x480 -i /dev/video0 -c:v cedrus264 -r 30 -t 15 -qp 20 test_camera.mp4
 
 FFmpeg options:
 
@@ -190,15 +193,18 @@ FFmpeg options:
 	-s 640x480 (or -video_size 640x480) sets the resolution according to your camera's capabilities
 	-i /dev/video0 sets the camera input
 	-c:v cedrus264 (or -vcodec cedrus264) sets the Allwinner Cedrus H264 hardware encoder
-	-pix_fmt nv12 is the only pixel format supported by the Cedrus encoder
 	-r 30 sets the framerate (fps)
 	-t 15 sets the time in seconds (you can omit this option and stop by Ctrl+C)
 	-qp 20 sets the video quality in the range 2-30 (instead of the bitrate), omitting this option may result in poor video quality
 
-If you access to the system via SSH terminal or using server Linux without desktop and get "VE open error", 
-root privileges (sudo) may be required:
+If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the additional option -pix_fmt nv12 for the output file:
 
-	sudo ffmpeg -f v4l2 -s 640x480 -i /dev/video0 -pix_fmt nv12 -c:v cedrus264 -r 30 -t 15 -qp 20 test_camera.mp4
+	ffmpeg -f v4l2 -s 640x480 -i /dev/video0 -c:v cedrus264 -pix_fmt nv12 -r 30 -t 15 -qp 20 test_camera.mp4
+
+If you access to the system via a terminal (COM-port or SSH) or using a server Linux without a desktop 
+and get the error "VE in use!" or "VE open error", root privileges (sudo) may be required:
+
+	sudo ffmpeg -f v4l2 -s 640x480 -i /dev/video0 -c:v cedrus264 -r 30 -t 15 -qp 20 test_camera.mp4
 
 
 ## 6. Decoding video from file
@@ -231,7 +237,7 @@ In the 3.4-cedrus and 2.8-libcedrus branches the vdpau hardware accelerator must
 
 	ffmpeg -hwaccels
 
-If you access to the system via SSH terminal and get the error "Cannot open the X11 display", 
+If you access to the system via a terminal (COM-port or SSH) and get the error "Cannot open the X11 display", 
 DISPLAY=:0 or DISPLAY=:0.0 prefix may be required:
 
 	DISPLAY=:0.0 ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo decoded_file.avi
@@ -244,6 +250,15 @@ VDPAU_DRIVER=sunxi prefix may be required:
 In some cases your FFmpeg decode usage may look as:
 
 	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ./ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo decoded_file.avi
+
+If all these prefixes are looking scary, you can export the environment variables:
+
+	export DISPLAY=:0.0
+	export VDPAU_DRIVER=sunxi
+
+After you export the environment variables, then you can run without prefixes:
+
+	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo decoded_file.avi
 
 If you are trying to run hardware decoding on the Allwinner H3 in the 3.4-cedrus or 2.8-libcedrus branch,
 and get "Error retrieving the data from a VDPAU surface", 
