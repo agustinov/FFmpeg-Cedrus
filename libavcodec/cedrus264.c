@@ -45,6 +45,17 @@
 #include "arm/sunxi/ve.h"
 #include "arm/sunxi/ve_regs.h"
 
+#define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
+typedef struct cedrus264Context {
+	AVClass *class;
+	cedrus_t *cedrus_dev;
+	uint8_t *ve_regs;
+	struct ve_mem *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
+	unsigned int tile_w, tile_w2, tile_h, tile_h2, mb_w, mb_h, plane_size, frame_size;
+	unsigned int frame_num;
+	int qp, vewait;
+} cedrus264Context;
+
 static void put_bits(void* regs, uint32_t x, int num)
 {
 	writel(x, (uint8_t *)regs + VE_AVC_BASIC_BITS);
@@ -174,17 +185,6 @@ static void put_aud(void* regs)
 
 	put_bits(regs, 7, 3);			// primary_pic_type
 }
-
-#define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
-typedef struct cedrus264Context {
-	AVClass *class;
-	cedrus_t *cedrus_dev;
-	uint8_t *ve_regs;
-	struct ve_mem *input_buf, *output_buf, *reconstruct_buf, *small_luma_buf, *mb_info_buf;
-	unsigned int tile_w, tile_w2, tile_h, tile_h2, mb_w, mb_h, plane_size, frame_size;
-	unsigned int frame_num;
-	int qp, vewait;
-} cedrus264Context;
 
 static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 {
@@ -402,5 +402,6 @@ AVCodec ff_cedrus264_encoder = {
 	.init           = cedrus264_encode_init,
 	.encode2        = cedrus264_encode,
 	.close          = cedrus264_close,
-	.priv_class	= &cedrus264_class,
+	.pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE },
+	.priv_class     = &cedrus264_class,
 };
