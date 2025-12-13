@@ -59,20 +59,13 @@ If you want to use hardware decoding, install additional libraries:
 
 	sudo apt-get install libpixman-1-dev libvdpau-dev libxext-dev libxt-dev
 
-Also install the Allwinner Sunxi libraries for hardware decoding or for the 2.8-libcedrus branch
-(adding the Allwinner Sunxi repository may be required):
+Also install the Allwinner Sunxi libraries for hardware decoding for all branches 
+or for hardaware encoding for the 2.8-libcedrus branch.
+Download the modified libcedrus, libvdpau-sunxi libraries from
+https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi 
+(make sure to remove libcedrus1, libvdpau-sunxi1, they will prevent running modified libraries):
 
-	sudo apt-get install libcedrus1, libvdpau-sunxi1
-
-Or manually download the libcedrus, libvdpau-sunxi libraries sources, then build and install them.
-
-For the 2.3-cedrus branch you can use the standard Linux-sunxi libcedrus and libvdpau-sunxi libraries
-from https://github.com/linux-sunxi/libcedrus and https://github.com/linux-sunxi/libvdpau-sunxi.
-
-For the 3.4-cedrus and 2.8-libcedrus branches you need to use the modified libcedrus and libvdpau-sunxi libraries
-from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi:
-
-	sudo apt-get install libpixman-1-dev libxt-dev libxext-dev
+	sudo apt-get remove libcedrus1 libvdpau-sunxi1
 	git clone https://github.com/agustinov/libcedrus.git
 	cd libcedrus
 	make
@@ -127,11 +120,11 @@ After configuration, build FFmpeg (this may take a long time, over an hour):
 
 If you get "make: Warning: File has modification time 123456789 s in the future", just update your system time.
 
-To speedup the building process, use the -j2 option (use 2 CPU cores):
+To speedup the building process, use the -j 2 option (use 2 CPU cores):
 
-	make -j2
+	make -j 2
 
-Using 4 CPU cores (make -j4) is not recommended on systems without a cooler due to the risk of CPU overheating.
+Using 4 CPU cores (make -j 4) is not recommended on systems without a cooler due to the risk of CPU overheating.
 
 After building FFmpeg, install it:
 
@@ -168,7 +161,9 @@ FFmpeg options:
 	-r 30 sets the framerate (fps)
 	-qp 20 sets the video quality in the range 2-30 (instead of the bitrate), omitting this option may result in poor video quality
 
-If encoding from the AVI inputfile, FFmpeg automatically gets the video format, resolution, framerate, time from the input file.
+If encoding from the AVI inputfile, FFmpeg automatically gets the video format, resolution, framerate, time from the input file:
+
+	ffmpeg -i inputfile.avi -c:v cedrus264 -qp 20 encoded_file.mp4
 
 If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the additional option -pix_fmt nv12 for the output file:
 
@@ -226,6 +221,10 @@ So you need to ensure that you have installed dependencies:
 libpixman-1-dev, libvdpau-dev, libxext-dev, libxt-dev, libcedrus1, libvdpau-sunxi1,
 maybe: SDL (for ffplay), X11 core (for server Linux without desktop).
 
+If you get "Error retrieving the data from a VDPAU surface", 
+you need to install the modified libcedrus, libvdpau-sunxi libraries (see *2. Installing dependencies*).
+Make sure to remove libcedrus1, libvdpau-sunxi1, they will prevent running modified libraries.
+
 If you get the error "No device available for decoder: device type vdpau needed for codec h264",
 make sure that your FFmpeg includes the h264_vdpau decoder.
 
@@ -260,10 +259,6 @@ After you export the environment variables, then you can run without prefixes:
 
 	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo decoded_file.avi
 
-If you are trying to run hardware decoding on the Allwinner H3 in the 3.4-cedrus or 2.8-libcedrus branch,
-and get "Error retrieving the data from a VDPAU surface", 
-you need to build the libcedrus, libvdpau-sunxi libraries modified for the Allwinner H3 (see *2. Installing dependencies*).
-
 Writing unencoded raw video to a file can be slow with low fps.
 If you want to test the hardware decoder with high fps, you can run decoding without writing:
 
@@ -280,13 +275,20 @@ If you are using a Linux specialized for your CPU, you can just run:
 	mpv inputfile.mp4
 
 If your Linux is not specialized for your CPU, you need to configure your play application by additional options.
-For playing a video file your MPV usage may look as:
+For playing a video file in fullscreen mode your MPV usage may look as:
 
 	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi mpv -hwdec=vdpau -hwdec-codecs=all -vo=vdpau -fs inputfile.mp4
 
 In this MPV example the VDPAU video output device is used.
+Video decoding is realized not by the hardware decoder built into FFmpeg, but with the VDPAU library.
+So you need to ensure that you have installed dependencies: 
+libpixman-1-dev, libvdpau-dev, libxext-dev, libxt-dev,
+maybe: SDL (for ffplay), X11 core (for server Linux without desktop).
+Also you need to install the modified libcedrus, libvdpau-sunxi libraries 
+from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi (see *2. Installing dependencies*).
 
 If you have a server Linux without X11 desktop and VDPAU, you can try to set the framebuffer video output device.
+When playing to the framebuffer video output device without X11 desktop and VDPAU, software decoding will be used.
 
 You can get a list of available MPV video output devices:
 
@@ -311,7 +313,7 @@ you can try to run MPlayer in fullscreen mode (-fs) and output to the framebuffe
 
 For playing a video file in X11 your MPlayer usage may look as:
 
-	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi mplayer -vo vdpau -vc ffh264vdpau,ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau inputfile.mp4
+	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi mplayer -vo vdpau -vc ffh264vdpau,ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau -fs inputfile.mp4
 
 If your MPV or MPlayer doesn't support hardware acceleration when decoding,
 you can build FFmpeg with hardware acceleration support and then rebuild MPV or MPlayer using your built FFmpeg.
@@ -329,7 +331,7 @@ If you have difficult conditions, for playing a video file your ffplay usage may
 
 If you get "decode_slice_header error no frame!", you can pipe video from ffmpeg to ffplay:
 
-	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ./ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo -f avi pipe: | sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ./ffplay -i pipe:
+	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo -f avi pipe: | sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ffplay -i pipe: -fs
 
 If all these prefixes are looking scary, you can export the environment variables:
 
@@ -338,15 +340,88 @@ If all these prefixes are looking scary, you can export the environment variable
 
 After you export the environment variables, then you can run without prefixes:
 
-	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo -f avi pipe: | ffplay -i pipe:
+	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo -f avi pipe: | ffplay -i pipe: -fs
 
 If you have a server Linux without X11 desktop and VDPAU, or if you couldn't build and run ffplay, 
 you can output video to the framebuffer directly from ffmpeg:
 
 	ffmpeg -i inputfile.mp4 -c:v rawvideo -pix_fmt bgra -f fbdev /dev/fb0
 
+When playing to the framebuffer video output device without X11 desktop and VDPAU, software decoding will be used.
 FFmpeg doesn't support fullscreen mode (-fs), but you can manually set the output resolution according to your display (rescaling may be slow):
 
 	ffmpeg -i inputfile.mp4 -c:v rawvideo -pix_fmt bgra -s 1280x720 -f fbdev /dev/fb0
 
 For more information you can also see *6. Decoding video from file*.
+
+
+## 8. Transcoding video from file
+
+Transcoding is supported only for the 2.8-libcedrus branch.
+Typical usage for transcoding video from a file:
+
+	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+FFmpeg options:
+
+	-i inputfile.mp4 sets the file input
+	-hwaccel vdpau sets the VDPAU hardware decoder
+	-c:v cedrus264 (or -vcodec cedrus264) sets the Allwinner Cedrus H264 hardware encoder
+	-qp 20 sets the video quality in the range 2-30 (instead of the bitrate), omitting this option may result in poor video quality
+
+If transcoding from the MP4 inputfile, FFmpeg automatically gets video format, resolution, framerate, time from the input file.
+
+Video decoding is realized not by the hardware decoder built into FFmpeg, but with the VDPAU library.
+So you need to ensure that you have installed dependencies: 
+libpixman-1-dev, libvdpau-dev, libxext-dev, libxt-dev,
+maybe: SDL (for ffplay), X11 core (for server Linux without desktop).
+Also you need to install the modified libcedrus, libvdpau-sunxi libraries 
+from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi (see *2. Installing dependencies*).
+Make sure to remove libcedrus1, libvdpau-sunxi1, they will prevent running modified libraries.
+
+If you get the error "No device available for decoder: device type vdpau needed for codec h264",
+make sure that your FFmpeg includes the h264_vdpau decoder.
+
+In the 2.3-cedrus and 2.8-libcedrus branches the h264_vdpau decoder must be listed in ffmpeg -codecs:
+
+	ffmpeg -codecs | grep -e h264 -e vdpau
+
+In the 3.4-cedrus and 2.8-libcedrus branches the vdpau hardware accelerator must be listed in ffmpeg -hwaccels:
+
+	ffmpeg -hwaccels
+
+If you access to the system via a terminal (COM-port or SSH) and get the error "Cannot open the X11 display", 
+DISPLAY=:0 or DISPLAY=:0.0 prefix may be required:
+
+	DISPLAY=:0.0 ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+If you get the error "Failed to open VDPAU backend libvdpau_nvidia.so: cannot open shared object file: No such file or directory",
+VDPAU_DRIVER=sunxi prefix may be required:
+
+	VDPAU_DRIVER=sunxi ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+If you access to the system via a terminal (COM-port or SSH) or using a server Linux without a desktop 
+and get the error "VE in use!" or "VE open error", root privileges (sudo) may be required:
+
+	sudo ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the additional option -pix_fmt nv12 for the output file:
+
+	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -pix_fmt nv12 -qp 20 transcoded_file.mp4
+
+In some cases your FFmpeg transcode usage may look as:
+
+	sudo DISPLAY=:0.0 VDPAU_DRIVER=sunxi ./ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+If all these prefixes are looking scary, you can export the environment variables:
+
+	export DISPLAY=:0.0
+	export VDPAU_DRIVER=sunxi
+
+After you export the environment variables, then you can run without prefixes:
+
+	ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v cedrus264 -qp 20 transcoded_file.mp4
+
+For mainline Linux kernel 5.x/6.x the VDPAU decoder is not used.
+You can search for FFmpeg with the CedarX / VAAPI / DRM / V4L2 request API hardware decoder.
+

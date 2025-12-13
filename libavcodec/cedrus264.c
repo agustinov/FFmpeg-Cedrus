@@ -46,6 +46,7 @@
 #include "arm/sunxi/ve_regs.h"
 
 #define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
+
 typedef struct cedrus264Context {
 	AVClass *class;
 	cedrus_t *cedrus_dev;
@@ -218,7 +219,7 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 		av_log(avctx, AV_LOG_ERROR, "VE Open error.\n");
 		return AVERROR(ENOMEM);
 	}
-	else printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", ve_get_version());
+	else av_log(avctx, AV_LOG_INFO, "[Cedrus SUNXI] VE version 0x%04x opened.\n", ve_get_version());
 
 	/* Compute tile, macroblock and plane size */
 	c4->tile_w = (avctx->width + 31) & ~31;
@@ -241,33 +242,6 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 		return AVERROR(ENOMEM);
 	}
 
-	/* Activate AVC engine */
-	c4->ve_regs = ve_get(VE_CTRL_ENGINE_AVC, 0);
-
-	/* ---- Part to put in cedrus264_encode if engine is used by multiple process (Need to be checked) */
-
-	/* Input size */
-	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
-	writel((c4->mb_w << 16) | (c4->mb_h << 0), c4->ve_regs + VE_ISP_INPUT_SIZE);
-
-	/* Input buffer */
-	writel(c4->input_buf->phys, c4->ve_regs + VE_ISP_INPUT_LUMA);
-	writel(c4->input_buf->phys + c4->plane_size, c4->ve_regs + VE_ISP_INPUT_CHROMA);
-
-	/* Reference output */
-	writel(c4->reconstruct_buf->phys, c4->ve_regs + VE_AVC_REC_LUMA);
-	writel(c4->reconstruct_buf->phys + c4->tile_w * c4->tile_h, c4->ve_regs + VE_AVC_REC_CHROMA);
-	writel(c4->small_luma_buf->phys, c4->ve_regs + VE_AVC_REC_SLUMA);
-	writel(c4->mb_info_buf->phys, c4->ve_regs + VE_AVC_MB_INFO);
-
-	/* Encoding parameters */
-	writel(0x00000100, c4->ve_regs + VE_AVC_PARAM);
-	writel(0x00040000 | (c4->qp<<8) | c4->qp, c4->ve_regs + VE_AVC_QP);
-	//writel(0x00041e1e, c4->ve_regs + VE_AVC_QP); // Fixed QP=30
-	writel(0x00000104, c4->ve_regs + VE_AVC_MOTION_EST);
-
-	/* ---- Part end ---- */
-
 	/* Alloc Frame 
 	avctx->coded_frame = av_frame_alloc();
 	if(!avctx->coded_frame){
@@ -289,6 +263,32 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	unsigned int size;
 	int result;
 	uint8_t *dst_data[4];
+	uint32_t enc_flags = 0;
+
+	/* Activate AVC engine */
+	if (ve_get_version() >= 0x1633)
+		enc_flags = VE_CTRL_ENABLE_AVC | VE_CTRL_ENABLE_ISP;
+	c4->ve_regs = ve_get(VE_CTRL_ENGINE_AVC, enc_flags);
+
+	/* Input size */
+	writel(c4->mb_w << 16, c4->ve_regs + VE_ISP_INPUT_STRIDE);
+	writel((c4->mb_w << 16) | (c4->mb_h << 0), c4->ve_regs + VE_ISP_INPUT_SIZE);
+
+	/* Input buffer */
+	writel(c4->input_buf->phys, c4->ve_regs + VE_ISP_INPUT_LUMA);
+	writel(c4->input_buf->phys + c4->plane_size, c4->ve_regs + VE_ISP_INPUT_CHROMA);
+
+	/* Reference output */
+	writel(c4->reconstruct_buf->phys, c4->ve_regs + VE_AVC_REC_LUMA);
+	writel(c4->reconstruct_buf->phys + c4->tile_w * c4->tile_h, c4->ve_regs + VE_AVC_REC_CHROMA);
+	writel(c4->small_luma_buf->phys, c4->ve_regs + VE_AVC_REC_SLUMA);
+	writel(c4->mb_info_buf->phys, c4->ve_regs + VE_AVC_MB_INFO);
+
+	/* Encoding parameters */
+	writel(0x00000100, c4->ve_regs + VE_AVC_PARAM);
+	writel(0x00040000 | (c4->qp<<8) | c4->qp, c4->ve_regs + VE_AVC_QP);
+	//writel(0x00041e1e, c4->ve_regs + VE_AVC_QP); // Fixed QP=30
+	writel(0x00000104, c4->ve_regs + VE_AVC_MOTION_EST);
 
 	/* Copy data */
 	dst_data[0] = c4->input_buf->virt;
@@ -338,6 +338,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	size = readl(c4->ve_regs + VE_AVC_VLE_LENGTH) / 8;
 	if(size > 0){
 		if ((result = ff_alloc_packet(avctx, pkt, size)) < 0){
+			ve_put();
 			av_log(avctx, AV_LOG_ERROR, "Packet allocation error.\n");
 			return result;
 		}
@@ -348,6 +349,7 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 		*got_packet = 1;
 	}else *got_packet = 0;
 
+	ve_put();
 	c4->frame_num++;
 
 	return 0;

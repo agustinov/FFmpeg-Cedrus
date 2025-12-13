@@ -243,10 +243,7 @@ void *ve_get(int engine, uint32_t flags)
 {
 	if (pthread_mutex_lock(&ve.device_lock))
 		return NULL;
-	if (ve_get_version() >= 0x1633)
-		writel(0x001300C0 | (engine & VE_CTRL_ENGINE_FIELD) | (flags & ~VE_CTRL_ENGINE_FIELD), (uint8_t *)ve.regs + VE_CTRL);
-	else
-		writel(0x00130000 | (engine & VE_CTRL_ENGINE_FIELD) | (flags & ~VE_CTRL_ENGINE_FIELD), (uint8_t *)ve.regs + VE_CTRL);
+	writel(0x00130000 | (engine & VE_CTRL_ENGINE_FIELD) | (flags & ~VE_CTRL_ENGINE_FIELD), (uint8_t *)ve.regs + VE_CTRL);
 
 	return ve.regs;
 }
