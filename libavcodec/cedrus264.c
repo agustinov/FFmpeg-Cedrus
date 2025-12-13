@@ -45,6 +45,7 @@
 #include "internal.h"
 
 #define CEDAR_OUTPUT_BUF_SIZE	1*1024*1024
+
 typedef struct cedrus264Context {
 	AVClass *class;
 	cedrus_t *cedrus_dev;
@@ -217,7 +218,7 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 		av_log(avctx, AV_LOG_ERROR, "VE Open error.\n");
 		return AVERROR(ENOMEM);
 	}
-	else printf("[Cedrus SUNXI] VE version 0x%04x opened.\n", cedrus_get_ve_version(c4->cedrus_dev));
+	else av_log(avctx, AV_LOG_INFO, "[Cedrus SUNXI] VE version 0x%04x opened.\n", cedrus_get_ve_version(c4->cedrus_dev));
 
 	/* Compute tile, macroblock and plane size */
 	c4->tile_w = (avctx->width + 31) & ~31;
@@ -260,12 +261,12 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 	cedrus264Context *c4 = avctx->priv_data;
 	unsigned int size;
 	int result;
-	unsigned int enc_flags = 0;
 	uint8_t *dst_data[4];
+	uint32_t enc_flags = 0;
 
-	if (cedrus_get_ve_version(c4->cedrus_dev) >= 0x1633) {
-		enc_flags = 0xC0; 
-	}
+	/* Activate AVC engine */
+	if (cedrus_get_ve_version(c4->cedrus_dev) >= 0x1633)
+		enc_flags = VE_CTRL_ENABLE_AVC | VE_CTRL_ENABLE_ISP;
 	c4->ve_regs = cedrus_ve_get(c4->cedrus_dev, CEDRUS_ENGINE_AVC, enc_flags);
 
 	/* Input size */
@@ -347,9 +348,9 @@ static int cedrus264_encode(AVCodecContext *avctx, AVPacket *pkt,
 		*got_packet = 1;
 	}else *got_packet = 0;
 
+	cedrus_ve_put(c4->cedrus_dev);
 	c4->frame_num++;
 
-	cedrus_ve_put(c4->cedrus_dev);
 	return 0;
 }
 
