@@ -45,7 +45,7 @@ OBJS-$(CONFIG_VP8_DECODER)             += arm/vp8dsp_init_arm.o
 OBJS-$(CONFIG_RV30_DECODER)            += arm/rv34dsp_init_arm.o
 OBJS-$(CONFIG_RV40_DECODER)            += arm/rv34dsp_init_arm.o        \
                                           arm/rv40dsp_init_arm.o
-OBJS-$(CONFIG_CEDRUS264_ENCODER)       += arm/sunxi_ve.o
+OBJS-$(CONFIG_H264_CEDRUS_ENCODER)     += arm/sunxi_ve.o
 
 # ARMv5 optimizations
 # subsystems

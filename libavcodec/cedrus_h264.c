@@ -1,5 +1,5 @@
 /*
- * Cedrus 264 Video Encoder
+ * Cedrus H264 Video Encoder
  * Copyright (c) 2014 Julien Folly
  *
  * byte stream utils from:
@@ -22,7 +22,7 @@
 
 /**
  * @file
- * Cedrus 264 Encoder
+ * Cedrus H264 Encoder
  */
 
 #include <fcntl.h>
@@ -388,14 +388,14 @@ static const AVOption options[] = {
 };
 
 static const AVClass cedrus264_class = {
-	.class_name = "cedrus264",
+	.class_name = "h264_cedrus",
 	.item_name  = av_default_item_name,
 	.option     = options,
 	.version    = LIBAVUTIL_VERSION_INT,
 };
 
-AVCodec ff_cedrus264_encoder = {
-	.name           = "cedrus264",
+AVCodec ff_h264_cedrus_encoder = {
+	.name           = "h264_cedrus",
 	.long_name      = NULL_IF_CONFIG_SMALL("Cedrus H.264 Encoder"),
 	.type           = AVMEDIA_TYPE_VIDEO,
 	.id             = AV_CODEC_ID_H264,
