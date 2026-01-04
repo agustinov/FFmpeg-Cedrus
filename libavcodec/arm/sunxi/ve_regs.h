@@ -51,6 +51,14 @@ static inline uint32_t readl(void *addr)
 #define VE_CTRL_ENABLE_ISP                  0x40
 #define VE_CTRL_ENABLE_AVC                  0x80
 
+// VE_OUTPUT_FORMAT register values
+#define VE_OUTPUT_FORMAT_TILE32x32          0x00
+#define VE_OUTPUT_FORMAT_TILE128x32         0x10
+#define VE_OUTPUT_FORMAT_I420               0x20
+#define VE_OUTPUT_FORMAT_YV12               0x30
+#define VE_OUTPUT_FORMAT_NV12               0x40
+#define VE_OUTPUT_FORMAT_NV21               0x50
+
 // VE MPEG engine registers
 #define VE_MPEG_PIC_HDR                     0x100
 #define VE_MPEG_VOP_HDR                     0x104

@@ -242,8 +242,8 @@ static av_cold int cedrus264_encode_init(AVCodecContext *avctx)
 		return AVERROR(ENOMEM);
 	}
 
-	/* Alloc Frame 
-	avctx->coded_frame = av_frame_alloc();
+	/* Alloc Frame */
+	/*avctx->coded_frame = av_frame_alloc();
 	if(!avctx->coded_frame){
 		av_log(avctx, AV_LOG_FATAL, "Cannot allocate frame.\n");
 		return AVERROR(ENOMEM);
