@@ -3,8 +3,9 @@
 FFmpeg-Cedrus is a FFmpeg fork with the Allwinner open-source Cedrus H264 hardware encoder.
 Supports the Allwinner H3 CPU. Tested on Orange Pi PC Plus, Orange Pi Lite.
 Optimal for Ubuntu 16.04 Xenial with the legacy Linux kernel 3.4.
-On Armbian with the mainline Linux kernel 5.x/6.x the Cedrus H264 hardware encoder may not work.
-For mainline Linux you can search for FFmpeg with the proprietary blob CedarX libraries.
+On Armbian with the mainline Linux kernel 5.x/6.x you should change dts file and 
+build sunxi cedar kernel module driver from https://github.com/uboborov/sunxi-cedar-mainline.
+Also for mainline Linux you can search for FFmpeg with the proprietary blob CedarX libraries.
 
 
 ## References
@@ -23,9 +24,11 @@ https://github.com/danielkucera/FFmpeg/tree/cedrus264 ported to FFmpeg 3.4.
 
 https://github.com/divis1969/FFmpeg/tree/2.8-cedrus reworked the Cedrus H264 encoder to use the libcedrus API in FFmpeg 2.8.
 
+https://github.com/twdragon/FFmpeg/tree/cedrus264 ported to FFmpeg 4.4.
+
 https://github.com/agustinov/FFmpeg-Cedrus fixed the green artefact at the frame bottom on 1080p resolution, 
 and merged all the listed above FFmpeg-Cedrus forks into the one repository.
-FFmpeg 2.3-cedrus, 2.8-libcedrus, 3.4-cedrus branches are available.
+FFmpeg 2.3-cedrus, 2.8-libcedrus, 3.4-cedrus, 4.4-cedrus branches are available.
 
 
 ## Usage
@@ -37,9 +40,9 @@ Clone FFmpeg-Cedrus from GitHub:
 	git clone https://github.com/agustinov/FFmpeg-Cedrus.git
 	cd FFmpeg-Cedrus
 	
-You can stay on the main 2.3-cedrus branch or switch to the 3.4-cedrus or 2.8-libcedrus branch.
+You can stay on the main 2.3-cedrus branch or switch to the 2.8-libcedrus/3.4-cedrus/4.4-cedrus branch.
 
-Or manually download (select the 2.3-cedrus, 3.4-cedrus or 2.8-libcedrus branch) and unzip the FFmpeg-Cedrus zip package.
+Or manually download (select the 2.3-cedrus/2.8-libcedrus/3.4-cedrus/4.4-cedrus branch) and unzip the FFmpeg-Cedrus zip package.
 
 	unzip FFmpeg-Cedrus-*branch*.zip
 	cd FFmpeg-Cedrus-*branch*
@@ -85,7 +88,7 @@ For the 2.3-cedrus and 2.8-libcedrus branches install libsdl1.2-dev:
 
 	sudo apt-get install libsdl1.2-dev
 
-For the 3.4-cedrus branch install libsdl2-dev:
+For the 3.4-cedrus and 4.4-cedrus branch install libsdl2-dev:
 
 	sudo apt-get install libsdl2-dev
 
@@ -96,7 +99,7 @@ you need to run ./configure again (with the same options) and then rebuild FFmpe
 
 ## 3. Building
 
-After installing all dependencies, configure FFmpeg before building (2.3-cedrus or 3.4-cedrus branch):
+After installing all dependencies, configure FFmpeg before building (2.3-cedrus/3.4-cedrus/4.4-cedrus branch):
 
 	./configure --prefix=/usr --enable-gpl --enable-libmp3lame --enable-libpulse --enable-libv4l2 --enable-libx264 --enable-hwaccels --enable-vdpau
 
@@ -173,8 +176,8 @@ If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the add
 
 	ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -c:v h264_cedrus -pix_fmt nv12 -r 30 -qp 20 encoded_file.mp4
 
-If you access to the system via a terminal (COM-port or SSH) or using a server Linux without a desktop 
-and get the error "VE in use!" or "VE open error", root privileges (sudo) may be required:
+If you get the error "VE in use!" or "VE open error", make sure you have /dev/cedar_dev.
+Also root privileges (sudo) may be required:
 
 	sudo ffmpeg -s 1280x720 -f rawvideo -pix_fmt nv12 -i inputfile.nv12 -c:v h264_cedrus -r 30 -qp 20 encoded_file.mp4
 
@@ -200,8 +203,8 @@ If you get the error "Unsupported pixel format (use -pix_fmt nv12)", use the add
 
 	ffmpeg -f v4l2 -s 640x480 -i /dev/video0 -c:v h264_cedrus -pix_fmt nv12 -r 30 -t 15 -qp 20 test_camera.mp4
 
-If you access to the system via a terminal (COM-port or SSH) or using a server Linux without a desktop 
-and get the error "VE in use!" or "VE open error", root privileges (sudo) may be required:
+If you get the error "VE in use!" or "VE open error", make sure you have /dev/cedar_dev.
+Also root privileges (sudo) may be required:
 
 	sudo ffmpeg -f v4l2 -s 640x480 -i /dev/video0 -c:v h264_cedrus -r 30 -t 15 -qp 20 test_camera.mp4
 
@@ -230,8 +233,8 @@ you need to install the modified libcedrus, libvdpau-sunxi libraries
 from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi (see *2. Installing dependencies*).
 Make sure to remove installed libcedrus1, it prevents running modified libcedrus library.
 
-If you access to the system via a terminal (COM-port or SSH) 
-and get the error "[VDPAU SUNXI] Failed to open CEDRUS", root privileges (sudo) may be required:
+If you get the error "[VDPAU SUNXI] Failed to open CEDRUS", make sure you have /dev/cedar_dev.
+Also root privileges (sudo) may be required:
 
 	sudo ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v rawvideo decoded_file.avi
 
@@ -389,9 +392,8 @@ Also you need to install the modified libcedrus, libvdpau-sunxi libraries
 from https://github.com/agustinov/libcedrus and https://github.com/agustinov/libvdpau-sunxi (see *2. Installing dependencies*).
 Make sure to remove installed libcedrus1, it prevents running modified libcedrus library.
 
-If you access to the system via a terminal (COM-port or SSH) 
-and get the error "VE in use!" or "VE open error" 
-or "[VDPAU SUNXI] Failed to open CEDRUS", root privileges (sudo) may be required:
+If you get the error "VE in use!", or "VE open error", or "[VDPAU SUNXI] Failed to open CEDRUS", 
+make sure you have /dev/cedar_dev. Also root privileges (sudo) may be required:
 
 	sudo ffmpeg -hwaccel vdpau -i inputfile.mp4 -c:v h264_cedrus -qp 20 transcoded_file.mp4
 
